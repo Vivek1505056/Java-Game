@@ -7,8 +7,12 @@ import java.awt.Graphics2D;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Random;
+import java.util.Scanner;
 
 import javax.imageio.ImageIO;
 import javax.swing.JFrame;
@@ -33,6 +37,8 @@ public class GamePanel extends JPanel implements Runnable{
 	public final int maxScreenRow = 20;
 	public final int screenWidth = tileSize * maxScreenCol;
 	public final int screenHeight = tileSize * maxScreenRow;
+	
+	//images
 	
 	public static BufferedImage fireImg, bulletImg, gameoverImg, winImg;
 	static {
@@ -59,6 +65,9 @@ public class GamePanel extends JPanel implements Runnable{
 	Player player = new Player(this,keyH);
 	Boss boss = new Boss(this);
 	Random randNum = new Random();
+	Rectangle health = new Rectangle();
+	
+	//JLabels for game over screen and win screen
 	JLabel win = new JLabel("VICTORY"){
 		protected void paintComponent(Graphics g) {
 			g.setColor(getBackground());
@@ -75,7 +84,10 @@ public class GamePanel extends JPanel implements Runnable{
 			super.paintComponent(g);
 		}
 	};
-   	
+	
+	
+        	
+   	//make variables
 	int life = 100;
 	int playerX = 550;
 	int playerY = 800;
@@ -106,7 +118,7 @@ public class GamePanel extends JPanel implements Runnable{
     
     int bulletY = playerY;
     int bulletX = playerX;
-    int bulletSpeed = 20;
+    int bulletSpeed = 40;
     int bulletHeight = 50;
     int bulletWidth = 50;
     
@@ -115,11 +127,14 @@ public class GamePanel extends JPanel implements Runnable{
     int fireWidth = 50;
     boolean gameOver;
     int counter;
+    int healthWidth = 1000;
     
-    
+    int timer;
+    int timerSeconds = 0;
 	
 	public GamePanel()
 	{
+		//more screen stuff
 		this.setPreferredSize(new Dimension(screenWidth, screenHeight));
 		this.setBackground(Color.black);
 		this.setDoubleBuffered(true);
@@ -136,7 +151,7 @@ public class GamePanel extends JPanel implements Runnable{
 	
 	public void run() 
 	{
-		
+		//making sure the drawings print and update
 		double drawInterval = 1000000000/FPS;
 		double nextDrawTime = System.nanoTime() + drawInterval;
 		
@@ -174,14 +189,17 @@ public class GamePanel extends JPanel implements Runnable{
 	public void update()
 	{
 		
+		//making the bullet move
 		if(keyH.spacePressed == true)
 		{
 			bulletY -= bulletSpeed;
 		}
 		
+		//sprites update movements
 		player.update();
 		boss.update();
 		
+		//random locations for the fire to spawn
 		playerX = player.getXVal();
 		playerY = player.getYVal();
 		if(fireX < 0 || fireY > maxHeight) {
@@ -209,7 +227,7 @@ public class GamePanel extends JPanel implements Runnable{
     
         }
 		
-				
+		//collisions for each fire
 		if(((playerX > fireX) && (playerX < fireX + fireWidth)) && ((playerY > fireY + 70) && (playerY < fireY + 70 + fireHeight))){
             gameOver = true;
 
@@ -255,9 +273,11 @@ public class GamePanel extends JPanel implements Runnable{
 
         }
 		
+		//boss hp and hitbox
 		if((bulletX > bossX) && (bulletX<bossX+1500) && (bulletY>bossY) && (bulletY<bossY+256)){
 			bulletY = playerY;
 			life = life - 1;
+			healthWidth -= 10;
 			if(life <= 0)
 			{
 				fireSpeed = 0; 
@@ -266,18 +286,21 @@ public class GamePanel extends JPanel implements Runnable{
 
 		
 
-		
+		//making fire move
 		fireY += fireSpeed;
 		
-		if(keyH.spacePressed == true)
+		if(timer % 60 == 0 && timer != 0)
 		{
-			bulletY -= bulletSpeed;
+			timerSeconds += 1;
 		}
+		timer += 1;
+		
 		
 	}
 	
 	public void paintComponent(Graphics g)
 	{
+		//drawing all the images
 		super.paintComponent(g);
 		
 		Graphics2D g2 = (Graphics2D)g;
@@ -286,7 +309,7 @@ public class GamePanel extends JPanel implements Runnable{
 		player.draw(g2);
 		boss.draw(g2);
 		
-		g2.setColor(Color.white);
+		g2.setColor(Color.red);
 		
 		g2.drawImage(fireImg, fireX, fireY + 100, fireWidth, fireHeight, null);
 		g2.drawImage(fireImg, fireX2, fireY + 70, fireWidth, fireHeight, null);
@@ -298,6 +321,10 @@ public class GamePanel extends JPanel implements Runnable{
 		g2.drawImage(fireImg, fireX8, fireY + 175, fireWidth, fireHeight, null);
 		g2.drawImage(fireImg, fireX9, fireY, fireWidth, fireHeight, null);
 		g2.drawImage(fireImg, fireX10, fireY + 256, fireWidth, fireHeight, null);
+		
+		g2.fillRect(70, 875, healthWidth, 15);
+		g2.drawRect(70, 875, healthWidth, 15);
+		
 		
 		
 		if(keyH.spacePressed == true)
@@ -311,6 +338,7 @@ public class GamePanel extends JPanel implements Runnable{
 			bulletY = playerY;
 		}
 		
+		//making game over and win screen
 		if(gameOver == true)
 		{
 			lose.setHorizontalAlignment(JLabel.CENTER);
@@ -327,8 +355,12 @@ public class GamePanel extends JPanel implements Runnable{
 			lose.setBackground(new Color(0, 0, 0, 100));
 			lose.setOpaque(false);
 			fireSpeed = 100;
+			playerSpeed = 0;
+			bulletSpeed = 0;
 			
 		}
+		
+
 		
 		if(life <= 0)
 		{
@@ -346,10 +378,46 @@ public class GamePanel extends JPanel implements Runnable{
 			win.setBackground(new Color(0, 0, 0, 100));
 			win.setOpaque(false);
 			gameOver = false;
+			playerSpeed = 0;
 		}
 		
-	
+		Scanner sc;
+		
+		if(gameOver == true)
+		{
+			try {
+                sc = new Scanner(new File("file.txt"));
+                
+                StringBuffer buffer = new StringBuffer();
 
+                while (sc.hasNextLine()) {
+                    buffer.append(sc.nextLine());
+                }
+                String fileContents = buffer.toString();
+                System.out.println(fileContents);
+                if(Integer.valueOf(fileContents) < timerSeconds){
+                    System.out.println("Passed if");
+                    fileContents = fileContents.replaceAll(fileContents, ""+timerSeconds);
+                    try {
+                        FileWriter myWriter = new FileWriter("main/highscore.txt");
+                        myWriter.write(Integer.toString(timerSeconds));
+                        myWriter.close();
+                        System.out.println("Successfully wrote to the file.");
+                    } catch (IOException e) {
+                        System.out.println("An error occurred.");
+                        e.printStackTrace();
+                        }
+                }
+
+
+
+                sc.close();
+                
+            } catch (FileNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+		}
 		g2.dispose();
 		
 	}
